@@ -1,0 +1,922 @@
+\documentclass[11pt]{article}
+\usepackage{amsmath,amsfonts,graphicx,geometry}
+\usepackage[backend=bibtex,style=authoryear]{biblatex}
+\usepackage{enumitem} 
+\usepackage{graphicx}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{amssymb} 
+
+\lstdefinestyle{mystyle}{
+backgroundcolor=\color{backcolour},
+commentstyle=\color{codegreen},
+keywordstyle=\color{magenta},
+numberstyle=\tiny\color{codegray},
+stringstyle=\color{codepurple},
+basicstyle=\ttfamily\footnotesize,
+breakatwhitespace=false,
+breaklines=true,
+captionpos=b,
+keepspaces=true,
+numbers=left,
+numbersep=5pt,
+showspaces=false,
+showstringspaces=false,
+showtabs=false,
+tabsize=2
+}
+
+\lstset{style=mystyle}
+
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+\addbibresource{ref.bib}
+\geometry{margin=1in}
+\title{MTP 2: Limit order Book - Markov based approach on Market Making}
+\author{Prepared by: Akhil CV, 24M1530 \\
+Guided by: Prof. K.S. Mallikarjuna Rao}
+
+
+\begin{document}
+
+\maketitle
+
+\section{Akhil's Plan }
+
+\begin{enumerate}
+\item[\checkmark] Confirm the project from Prof.
+\item Identify Data foe L2/L3 levels 
+\item Parse/Scape the data
+\item Define the Limit orders and order flow
+\item Market making problem
+
+
+\subsection{Feedback from Prof: }
+\item *********
+\item ***********
+\end{enumerate}
+
+\maketitle
+
+\section{Recurrence of Limit Order Book Between Price Thresholds: Theory and Empirical Verification}
+
+\subsection{Model Setup}
+
+Let $(X_t)_{t \in \mathbb{Z}_{\ge 0}}$ denote the discrete-time state process describing the limit order book (LOB) at time $t$.  
+Let
+
+\[
+B_t = b(X_t), \qquad A_t = a(X_t),
+\]
+
+represent the best bid and best ask price functions extracted from the LOB state.
+
+Fix thresholds
+\[
+L_b < U_b, \qquad L_a < U_a,
+\]
+and define the \emph{band region}
+\[
+\mathcal{B} = \left\{ x :  L_b \le b(x) \le U_b,\quad L_a \le a(x) \le U_a \right\}.
+\]
+
+Define the indicator variable of being in the band at time $t$:
+
+\[
+I_t = \mathbf{1}_{\left\{X_t \in \mathcal{B}\right\}}.
+\]
+
+Let $\tau_1$ denote the first entrance time into $\mathcal{B}$ and recursively define
+
+\[
+\tau_{k} = \inf\{t > \tau_{k-1} : X_t \in \mathcal{B}\}, \quad k \ge 2.
+\]
+
+The \emph{inter-return times} are then defined as
+\[
+T_k = \tau_k - \tau_{k-1}, \quad k \ge 2.
+\]
+
+\subsection{Assumption A: Stationary and Ergodic LOB Dynamics}
+
+We work under the following standard structural assumption.
+
+\vspace{2mm}
+\noindent
+\textbf{Assumption A.}
+\begin{enumerate}
+    \item The process $(X_t)$ is a time-homogeneous Markov chain on a measurable state space $\mathcal{X}$.
+
+    \item The chain is irreducible and positive recurrent, and admits a unique invariant probability measure $\pi$ on $\mathcal{X}$.
+
+    \item The chain operates in stationarity, i.e. the distribution of $X_0$ is $\pi$ (or equivalently the chain has run long enough to forget its initial state).
+
+    \item The band region has strictly positive stationary probability:
+    \[
+    \pi(\mathcal{B}) = \sum_{x \in \mathcal{B}} \pi(x) > 0.
+    \]
+\end{enumerate}
+
+\subsection{Definition of Recurrence}
+
+\begin{definition}[Recurrence of the Band]
+    The band $\mathcal{B}$ is called \emph{recurrent} if, starting from any state $X_0$, the LOB returns infinitely often to $\mathcal{B}$ almost surely:
+    \[
+    \mathbb{P}\left( X_t \in \mathcal{B} \ \text{for infinitely many } t \right) = 1.
+    \]
+    It is called \emph{positive recurrent} if the expected return time
+    \[
+    \mathbb{E}[T_2 \mid X_{\tau_1} \in \mathcal{B}] < \infty.
+    \]
+\end{definition}
+
+Under Assumption A, classical Markov chain theory ensures that $\mathcal{B}$ is positive recurrent.
+
+\subsection{Main Consistency Lemma: What the Empirical Estimators Measure}
+
+Define the empirical time proportion spent in the band as
+\[
+\widehat{\pi}_n(\mathcal{B}) = \frac{1}{n} \sum_{t=1}^{n} I_t.
+\]
+
+Let $N_n = \sum_{t=1}^{n} I_t$ denote the number of visits to $\mathcal{B}$ by time $n$ and define
+\[
+\widehat{\mu}_m = \frac{1}{m-1}\sum_{k=2}^{m} T_k,
+\]
+where $m$ is the number of completed returns.
+
+\begin{lemma}[Consistency of Empirical Recurrence Indicators]\label{lem:recurrence}
+Under Assumption~A, the following statements hold.
+
+\begin{enumerate}
+    \item \textbf{Empirical time fraction consistency:}
+    \[
+    \widehat{\pi}_n(\mathcal{B}) \xrightarrow[n \to \infty]{a.s.} \pi(\mathcal{B}) > 0.
+    \]
+
+    \item \textbf{Consistency of mean return time:}
+    The random variables $T_k$ are i.i.d.\ with finite mean and
+    \[
+    \widehat{\mu}_m \xrightarrow[m\to\infty]{a.s.} 
+    \mathbb{E}[T_2].
+    \]
+
+    \item \textbf{Reciprocal identity:}
+    In the stationary Markov chain framework
+    \[
+    \mathbb{E}[T_2] = \frac{1}{\pi(\mathcal{B})},
+    \]
+    implying that jointly
+    \[
+    \widehat{\mu}_m \cdot \widehat{\pi}_n(\mathcal{B}) \to 1,
+    \]
+    in probability under appropriate joint asymptotics.
+\end{enumerate}
+\end{lemma}
+
+\subsection*{Proof Sketch}
+
+The result follows from three standard results.
+
+\begin{enumerate}
+    \item Stationarity and ergodicity imply by the ergodic theorem:
+    \[
+    \frac{1}{n}\sum_{t=1}^{n}f(X_t)\to \mathbb{E}_{\pi}[f(X_0)], \quad\text{a.s.}
+    \]
+    Choosing $f(X_t)=\mathbf{1}_{\mathcal{B}}$ yields
+    \[
+    \widehat{\pi}_n(\mathcal{B}) \to \pi(\mathcal{B}).
+    \]
+
+    \item Positive recurrence ensures the existence of regeneration cycles induced by successive returns to $\mathcal{B}$, implying that the inter-return times form an i.i.d.\ sequence with finite expectation.
+
+    \item Renewal theory for Markov chains yields
+    \[
+    \mathbb{E}[T_2]= \frac{1}{\pi(\mathcal{B})},
+    \]
+    since $\pi(\mathcal{B})$ represents the limiting frequency of visits.
+\end{enumerate}
+
+This completes the proof sketch.
+
+\subsection{Interpretation}
+
+The lemma shows that:
+
+\begin{itemize}
+    \item Observing a stable positive estimate of $\widehat{\pi}_n(\mathcal{B})$ provides evidence that the band has positive invariant probability.
+
+    \item Observing a finite and stable estimate of $\widehat{\mu}_m$ provides evidence of finite return times, which characterizes positive recurrence.
+
+    \item Agreement between $\widehat{\mu}_m$ and $1/\widehat{\pi}_n(\mathcal{B})$ supports model consistency.
+\end{itemize}
+
+Thus, empirical stability of these quantities supports the claim that the limit order book dynamics are recurrent between the selected thresholds.
+
+\subsection{Empirical Measurement Procedure}
+
+Given a time series of best bid and best ask data:
+
+\[
+\{(B_t, A_t) : t = 1, \dots, n\},
+\]
+define
+\[
+I_t = \mathbf{1}_{\{ L_b \le B_t \le U_b,\ L_a \le A_t \le U_a \}}.
+\]
+
+Then:
+
+\begin{enumerate}
+    \item Compute
+    \[
+    \widehat{\pi}_n(\mathcal{B}) = \frac{1}{n}\sum_{t=1}^{n} I_t.
+    \]
+
+    \item Identify visit times $\tau_k$ where $I_{\tau_k} = 1$, compute inter-return gaps $T_k$ and evaluate the empirical mean
+    \[
+    \widehat{\mu}_m = \frac{1}{m-1}\sum_{k=2}^{m} T_k.
+    \]
+
+    \item As $n$ grows, examine whether $\widehat{\pi}_n(\mathcal{B})$ converges to a positive constant and whether $\widehat{\mu}_m$ stabilizes.
+\end{enumerate}
+
+Robust convergence across trading days and instruments provides strong empirical support for recurrence.
+
+\section{Market Regime and Jump model}
+
+Financial markets evolve through different regimes characterized by
+distinct volatility and return patterns. Examples include:
+
+\begin{itemize}
+\item Bull market regimes
+\item Bear market regimes
+\item High volatility periods
+\item Low volatility periods
+\end{itemize}
+
+Regime-switching models aim to identify these states and detect
+transitions between them.
+
+Traditional approaches include:
+
+\begin{itemize}
+\item Hidden Markov Models
+\item Gaussian Mixture Models
+\item Clustering techniques
+\end{itemize}
+
+However, these models face challenges when detecting abrupt price
+jumps or distinguishing them from volatility spikes.
+
+\subsection{Jump Models}
+
+Jump models extend clustering methods by introducing temporal
+consistency through a penalty for switching regimes.
+
+Let
+
+\[
+X = \{x_1, x_2, \dots, x_T\}
+\]
+
+be a financial return series.
+
+We define a feature vector
+
+\[
+y_t \in \mathbb{R}^D
+\]
+
+and a hidden state sequence
+
+\[
+s_t \in \{1, \dots, K\}
+\]
+
+where $K$ represents the number of regimes.
+
+Each state has parameters
+
+\[
+\theta_k
+\]
+
+representing the cluster centroid.
+
+\subsection{Objective Function}
+
+The jump model is estimated by minimizing the objective function
+
+\[
+\Psi(\theta,S) =
+\sum_{t=1}^{T-1}
+\left[
+\ell(y_t,\theta_{s_t})
++
+\lambda \eta(s_t,s_{t+1})
+\right]
++
+\ell(y_T,\theta_{s_T})
+\]
+
+where
+
+\begin{itemize}
+\item $\ell(y_t,\theta_{s_t})$ measures clustering error
+\item $\eta(s_t,s_{t+1})$ penalizes regime switching
+\item $\lambda$ controls the persistence of regimes
+\end{itemize}
+
+Typically
+
+\[
+\ell(x,y) = ||x-y||^2
+\]
+
+and
+
+\[
+\eta(s_t,s_{t+1}) = \mathbf{1}_{s_t \neq s_{t+1}}
+\]
+
+\subsection{Learning the Conditional Distribution}
+
+Traditional jump models assume observations in a state share the
+same mean. However, financial returns also vary in volatility.
+
+To capture higher moments we assume
+
+\[
+y_t \sim \mathcal{N}(\mu_{s_t}, \sigma^2_{s_t})
+\]
+
+and estimate both mean and variance.
+
+An extended objective function may include moment matching:
+
+\[
+(y_t - \mu_{s_t})^2 + (y_t^2 - \sigma_{s_t}^2)^2
+\]
+
+This allows the model to distinguish between volatility changes
+and true price jumps.
+
+\subsection{DeepNet Jump Models}
+
+Clustering in the original feature space may fail when clusters
+overlap. To address this, we map observations into a latent space
+using a Variational Autoencoder.
+
+Let
+
+\[
+z_t \sim q_{\phi}(z|y_t)
+\]
+
+denote the latent representation.
+
+The VAE provides
+
+\[
+\mu_t, \sigma_t
+\]
+
+representing the approximate posterior distribution.
+
+We construct a latent feature
+
+\[
+F_t = \mu_t + \sigma_t \epsilon_t
+\]
+
+where
+
+\[
+\epsilon_t \sim \mathcal{N}(0,I)
+\]
+
+Clustering is then performed in the latent space.
+
+\subsection{State Sequence Estimation}
+
+The optimal state sequence is estimated using dynamic programming.
+
+Define
+
+\[
+L(t,k) = ||F_t - \mu_k||^2
+\]
+
+Then compute recursively
+
+\[
+V(t,k) =
+L(t,k)
++
+\min_j
+\left[
+V(t-1,j) + \lambda \mathbf{1}_{j \neq k}
+\right]
+\]
+
+The optimal state sequence is obtained through backtracking.
+
+\subsection{Detecting Price Jumps}
+
+Price jumps are defined as sudden deviations from the underlying
+distribution of returns.
+
+Instead of detecting individual outliers, the framework evaluates
+whether segments of time series are anomalous relative to their
+preceding segments.
+
+\subsection{Path Signatures}
+
+A time series path can be represented using signatures from rough
+path theory.
+
+For a path $X_t$, the signature consists of iterated integrals
+
+\[
+S(X) =
+\left(
+1,
+\int dX,
+\int X\, dX,
+\int X^2 dX,
+\dots
+\right)
+\]
+
+These features capture the geometry and order of the path.
+
+\subsection{Variance Norm}
+
+To measure deviation from a distribution we compute the variance
+norm
+
+\[
+d_V(x) =
+\sqrt{
+(x-\mu)^T
+\Sigma^{-1}
+(x-\mu)
+}
+\]
+
+where
+
+\begin{itemize}
+\item $\mu$ is the mean vector
+\item $\Sigma$ is the covariance matrix
+\end{itemize}
+
+Large values indicate anomalous observations.
+
+\subsection{Consecutive Signature Distance}
+
+Given two consecutive segments $S_t$ and $S_{t+1}$ we compute
+
+\[
+d_V(S_t,S_{t+1})
+\]
+
+If the distance exceeds a threshold, a price jump is detected.
+
+\subsection{Framework}
+
+The full pipeline consists of:
+
+\begin{enumerate}
+\item Convert time series into overlapping segments
+\item Compute path signatures
+\item Calculate variance norm distances
+\item Identify jumps via thresholding
+\item Train jump models on filtered data
+\item Predict hidden regimes
+\end{enumerate}
+
+\subsection{Simulation Results}
+
+Experiments demonstrate that DeepNet Jump Models achieve
+higher balanced accuracy compared to traditional clustering
+and HMM approaches.
+
+\begin{center}
+\begin{tabular}{lcc}
+\toprule
+Model & Accuracy & BAC \\
+\midrule
+GMM & 0.379 & 0.221 \\
+VAE & 0.466 & 0.367 \\
+VAE + Viterbi & 0.532 & 0.454 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Conclusion}
+
+DeepNet Jump Models provide a robust framework for regime detection
+and price jump identification in financial markets.
+
+The approach integrates:
+
+\begin{itemize}
+\item clustering-based jump models
+\item deep learning representations
+\item anomaly detection via variance norm
+\item path signatures for time-series structure
+\end{itemize}
+
+This combination improves both predictive accuracy and responsiveness
+to regime shifts.
+\section{Data Processing and Market Microstructure Feature Construction}
+
+\subsection{Market Data Representation}
+
+Let the raw market data be represented as a sequence of limit order book observations
+
+\[
+\mathcal{D} = \{(t_i, s_i, p_i, q_i)\}_{i=1}^{N}
+\]
+
+where
+
+\begin{itemize}
+\item $t_i$ denotes the timestamp,
+\item $s_i \in \{\text{Bid},\text{Ask}\}$ indicates the side of the order,
+\item $p_i$ denotes the quoted price,
+\item $q_i$ denotes the quoted quantity.
+\end{itemize}
+
+Each snapshot of the limit order book is indexed by a snapshot identifier
+
+\[
+\text{snap\_idx} = k
+\]
+
+which groups together all orders belonging to the same order book state.
+
+\subsection{Midprice Construction}
+
+For each snapshot $k$, the best bid and ask prices are defined as
+
+\[
+B_k = \max_{i:s_i=\text{Bid}} p_i
+\]
+
+\[
+A_k = \min_{i:s_i=\text{Ask}} p_i
+\]
+
+The midprice is then defined as
+
+\[
+M_k = \frac{B_k + A_k}{2}.
+\]
+
+To analyze the relative structure of the book around the midprice we define a normalized price coordinate
+
+\[
+p_i^{norm} = p_i - M_k.
+\]
+
+This representation centers the order book around zero so that positive values correspond to the ask side and negative values correspond to the bid side.
+
+\subsection{Quantity Normalization}
+
+For derivatives instruments traded with contract size $L$, quantities are normalized as
+
+\[
+q_i^{norm} = \frac{q_i}{L}.
+\]
+
+In our experiments the NIFTY futures contract size is
+
+\[
+L = 65.
+\]
+
+This normalization allows comparability across instruments.
+
+\section{Extraction of Level--1 Order Book}
+
+The Level--1 order book represents the best bid and best ask at each snapshot.
+
+Formally,
+
+\[
+B_t = \max_{i:s_i=\text{Bid}} p_i, \qquad
+A_t = \min_{i:s_i=\text{Ask}} p_i.
+\]
+
+The associated quantities are
+
+\[
+Q_t^{bid}, \qquad Q_t^{ask}.
+\]
+
+The Level--1 state is therefore
+
+\[
+X_t = (B_t,A_t,Q_t^{bid},Q_t^{ask}).
+\]
+
+This representation is the primary input to the regime detection and market making models.
+
+\section{Microstructure Feature Engineering}
+
+From the Level--1 order book state $X_t$ we construct a set of microstructure features.
+
+\subsection{Spread}
+
+The bid--ask spread is
+
+\[
+S_t = A_t - B_t.
+\]
+
+\subsection{Microprice}
+
+The microprice represents a liquidity weighted estimate of the efficient price:
+
+\[
+m_t =
+\frac{A_t Q_t^{bid} + B_t Q_t^{ask}}
+     {Q_t^{bid}+Q_t^{ask}}.
+\]
+
+The microprice tilts toward the side with greater queue size.
+
+\subsection{Microprice Return}
+
+The return process is defined as
+
+\[
+r_t = \log\left(\frac{m_t}{m_{t-1}}\right).
+\]
+
+\subsection{Order Book Imbalance}
+
+Order flow imbalance is defined as
+
+\[
+I_t =
+\frac{Q_t^{bid} - Q_t^{ask}}
+     {Q_t^{bid}+Q_t^{ask}}.
+\]
+
+\subsection{Volume Pressure}
+
+To capture asymmetry in liquidity supply we define
+
+\[
+V_t = \log\left(\frac{Q_t^{bid}+1}{Q_t^{ask}+1}\right).
+\]
+
+The complete feature vector is therefore
+
+\[
+Y_t =
+(r_t,S_t,I_t,V_t).
+\]
+
+\section{Hidden Markov Model for Market Regime Detection}
+
+Financial markets operate under multiple regimes such as market making periods and directional order flow phases.
+
+We model the regime sequence using a Hidden Markov Model (HMM).
+
+\subsection{Latent State Process}
+
+Let
+
+\[
+S_t \in \{1,2,3\}
+\]
+
+represent the hidden regime at time $t$.
+
+We assume the regime evolves as a Markov chain
+
+\[
+P(S_t=j|S_{t-1}=i) = P_{ij}.
+\]
+
+\subsection{Observation Model}
+
+Conditional on the state $S_t=k$, the feature vector follows a Gaussian distribution
+
+\[
+Y_t | S_t=k \sim
+\mathcal{N}(\mu_k,\Sigma_k).
+\]
+
+The parameters
+
+\[
+(\mu_k,\Sigma_k)
+\]
+
+are estimated via maximum likelihood using the Baum--Welch algorithm.
+
+\subsection{Interpretation of Regimes}
+
+After estimation the states are interpreted as
+
+\begin{itemize}
+\item $S_t=0$: Market making regime
+\item $S_t=1$: Upward pressure regime
+\item $S_t=2$: Downward pressure regime
+\end{itemize}
+
+These regimes correspond to different liquidity conditions in the order book.
+
+\section{Markov Limit Order Book and Mean Reversion}
+
+During market making periods the microprice exhibits mean reverting behavior.
+
+We model the microprice using an Ornstein--Uhlenbeck process
+
+\[
+dm_t = -\kappa(m_t-\mu)dt + \sigma dW_t.
+\]
+
+Here
+
+\begin{itemize}
+\item $\mu$ is the equilibrium price,
+\item $\kappa$ is the mean reversion speed,
+\item $\sigma$ is the volatility parameter.
+\end{itemize}
+
+\subsection{Discrete Representation}
+
+For discrete observations
+
+\[
+m_{t+1} = a m_t + b + \epsilon_t
+\]
+
+with
+
+\[
+\epsilon_t \sim \mathcal{N}(0,\sigma^2).
+\]
+
+The parameters are estimated using linear regression.
+
+\subsection{Stationary Distribution}
+
+The stationary distribution of the OU process is
+
+\[
+m_t \sim
+\mathcal{N}\left(
+\mu,
+\frac{\sigma^2}{2\kappa}
+\right).
+\]
+
+The equilibrium mean is
+
+\[
+\mu = \frac{b}{1-a}.
+\]
+
+The stationary variance is
+
+\[
+\sigma_{stat}^2 = \frac{\sigma^2}{1-a^2}.
+\]
+
+\section{Market Making Price Bands}
+
+Using the stationary distribution we define upper and lower microprice bounds
+
+\[
+L_t = \mu - k\sigma_{stat},
+\]
+
+\[
+U_t = \mu + k\sigma_{stat}.
+\]
+
+The constant $k$ determines the width of the band.
+
+\section{Conversion to Bid and Ask Bounds}
+
+Since quoting occurs at bid and ask prices rather than microprice, the band is translated using the spread.
+
+Let
+
+\[
+S_t = A_t - B_t.
+\]
+
+The quoting bounds become
+
+\[
+B_t^{bound} = L_t - \frac{S_t}{2}
+\]
+
+\[
+A_t^{bound} = U_t + \frac{S_t}{2}.
+\]
+
+\section{Market Microstructure Constraints}
+
+To maintain a valid order book we enforce
+
+\[
+B_t^{bound} \le B_t \le A_t \le A_t^{bound}.
+\]
+
+Violations are corrected by clipping
+
+\[
+B_t^{bound} = \min(B_t^{bound},B_t)
+\]
+
+\[
+A_t^{bound} = \max(A_t^{bound},A_t).
+\]
+
+\section{Algorithmic Pipeline}
+
+The full estimation procedure consists of the following steps.
+
+\begin{enumerate}
+\item Read raw order book snapshots.
+\item Compute midprice and normalize prices.
+\item Extract Level--1 order book states.
+\item Construct microstructure features.
+\item Train the Hidden Markov Model.
+\item Infer market regimes.
+\item During market making regimes estimate OU parameters.
+\item Compute stationary microprice bands.
+\item Convert microprice bands to bid and ask bounds.
+\end{enumerate}
+
+\section{Interpretation}
+
+The resulting bands represent the equilibrium region in which market makers are willing to provide liquidity.
+
+When the microprice approaches the upper bound, the order book tends to experience selling pressure.
+
+When the microprice approaches the lower bound, buying pressure increases.
+
+Thus the model provides a quantitative representation of market making behavior in the limit order book.
+
+
+% \subsection{Python Implementation (Appendix)}
+
+% \begin{verbatim}
+% import numpy as np
+% import pandas as pd
+
+% def compute_band_recurrence_stats(df, L_b, U_b, L_a, U_a):
+%     in_band = (
+%         (df['bid'] >= L_b) & (df['bid'] <= U_b) &
+%         (df['ask'] >= L_a) & (df['ask'] <= U_a)
+%     )
+
+%     visit_times = df.index[in_band]
+
+%     if len(visit_times) < 2:
+%         inter_return_steps = np.array([])
+%         inter_return_seconds = np.array([])
+%     else:
+%         visit_idx = np.where(in_band.values)[0]
+%         inter_return_steps = np.diff(visit_idx)
+
+%         inter_return_seconds = np.diff(
+%             visit_times.values.astype('datetime64[ns]')
+%         ) / np.timedelta64(1, 's')
+
+%     time_fraction = in_band.mean()
+
+%     time_fraction_over_time = in_band.cumsum() / np.arange(1, len(in_band)+1)
+%     time_fraction_over_time.index = df.index
+
+%     return {
+%         'in_band': in_band,
+%         'visit_times': visit_times,
+%         'inter_return_steps': inter_return_steps,
+%         'inter_return_seconds': inter_return_seconds,
+%         'time_fraction': time_fraction,
+%         'time_fraction_over_time': time_fraction_over_time
+%     }
+% \end{verbatim}
+
+
+
+
+\printbibliography  % This will print the bibliography at the end of your document
+\end{document}
