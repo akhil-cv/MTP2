@@ -930,6 +930,113 @@ In practice, the system operates in two modes:
 
 This separation ensures that the quoting logic remains stable while still adapting to evolving market conditions.
 
+\section{Comparative Evaluation of Regime Detection Approaches}
+
+The notebook studies regime-dependent execution modeling for a limit order book using a common downstream pipeline: each regime model partitions the snapshot stream, regime-specific bid and ask fill-probability surfaces are estimated over distance and volume buckets, and these surfaces are then queried online to produce level-wise fill probabilities. This common interface makes the comparison meaningful, because differences in output can be attributed primarily to the regime model rather than to changes in the execution-surface construction itself.
+
+\paragraph{Common Experimental Setup.}
+Across the notebook, the order book is reconstructed from indexed snapshots with depth $20$, a forecasting horizon of $50$ snapshots, and an exit-time parameter of $25$. The execution surfaces are discretized using distance buckets
+\[
+\texttt{DIST\_BUCKETS} = [0,1,2,4,5,6]
+\]
+and volume buckets
+\[
+\texttt{VOL\_BUCKETS} = [1,10,25,40,50,100].
+\]
+For each detected regime, separate bid-side and ask-side empirical fill surfaces are estimated as
+\[
+\hat p_{\text{fill}}(d,v \mid r)
+=
+\frac{\text{fills in bucket }(d,v)\text{ under regime }r}
+{\text{observations in bucket }(d,v)\text{ under regime }r + \varepsilon}.
+\]
+The comparison therefore focuses on how well each regime model produces coherent, stable, and economically interpretable groupings of book states.
+
+\paragraph{KMeans as the Baseline.}
+The original notebook uses $K$Means with three clusters as the baseline regime detector. In the first version, the regime features are microstructure variables such as spread, imbalance, bid depth, and ask depth. In a later version, the feature set is redefined to include mid-price, spread, total bid volume, and total ask volume, with standardization applied before clustering. The notebook also visualizes the resulting regimes in PCA space and overlays decision regions, making $K$Means the most transparent and interpretable model in the current workflow.
+
+The main strength of $K$Means in the notebook is simplicity. The regime assignments are fast to compute, the hard labels map directly into regime-specific surfaces, and the resulting bid and ask probability curves are straightforward to generate. As a baseline, it is effective because it gives an immediate segmentation of the market into a small number of operational states.
+
+However, several limitations are evident from the notebook setup. First, the number of regimes is fixed \emph{a priori} at three, rather than inferred from the data. Second, the clustering is static: every snapshot is assigned independently, with no persistence constraint or transition structure. Third, the inclusion of mid-price in one of the feature definitions risks mixing \emph{price level} with \emph{market regime}, which can make the clusters less about liquidity state and more about where the instrument happened to trade. Finally, the original online probability block uses hard assignments only, so any uncertainty near regime boundaries is discarded.
+
+In short, the notebook shows that $K$Means is useful as a baseline operational segmentation method, but not as a fully satisfactory statistical description of regime structure.
+
+\paragraph{Gaussian Mixture Model (GMM).}
+The notebook extends the baseline by training a Gaussian Mixture Model with three components and then querying execution surfaces using \emph{soft regime probabilities}. This is an important improvement over the $K$Means formulation. Instead of assigning each snapshot to a single regime, the GMM estimates posterior probabilities
+\[
+p(r \mid x_t),
+\]
+and the execution probability is formed as a weighted mixture of regime-specific surfaces:
+\[
+\hat p_{\text{fill}}(d,v \mid x_t)
+=
+\sum_r p(r \mid x_t)\,\hat p_{\text{fill}}(d,v \mid r).
+\]
+
+Based on the notebook logic, this is the most statistically coherent approach among the models that are visibly run to completion. It preserves the empirical surface construction while reducing label discontinuity. In practice, this means the fill-probability curves are expected to be smoother over time, because a snapshot near a regime boundary no longer causes a discrete jump from one surface to another. This is particularly appropriate for limit order book states, where liquidity conditions often evolve continuously rather than switching abruptly.
+
+Relative to $K$Means, the GMM offers three clear advantages in the notebook context. First, it allows elliptical clusters rather than spherical ones, which is more consistent with correlated microstructure features. Second, it provides posterior probabilities, which can be used directly in the online fill-probability engine. Third, it avoids some of the brittleness of hard clustering when the feature space is noisy or overlapping.
+
+Its main weakness is that it is still a static cross-sectional model. The GMM improves the geometry of the clusters, but it does not explicitly model regime persistence through time. As a result, if the market transitions slowly but the feature vector oscillates locally, the posterior weights can still fluctuate more than one would like in a temporal execution model.
+
+Overall, the notebook evidence supports the GMM as the strongest \emph{drop-in replacement} for $K$Means. It keeps the same downstream execution-surface architecture while improving statistical flexibility and online smoothness.
+
+\paragraph{Hidden Markov Model (HMM).}
+The notebook also trains an HMM with three latent states and builds regime-specific fill surfaces from the inferred state sequence. Conceptually, the HMM is the most natural model for the stated objective of regime detection, because it combines cross-sectional state separation with temporal persistence. In other words, it models not only \emph{what} regime a snapshot belongs to, but also \emph{how} regimes evolve over time.
+
+This matters in a limit order book setting. Many phenomena of interest, such as tight-spread states, stressed liquidity states, and one-sided pressure states, are persistent over short horizons. A static model may repeatedly reassign neighboring snapshots across regimes, whereas an HMM can smooth such behavior through the transition matrix. For execution modeling, that persistence is valuable: if the market is currently in a queue-congested or adverse-selection regime, one expects that state to remain relevant for several subsequent snapshots rather than vanish immediately.
+
+Within the notebook's architecture, the HMM has two important benefits. First, it yields latent states that are more likely to represent genuine market phases rather than merely geometric clusters in feature space. Second, when paired with either hard state prediction or posterior state probabilities, it can support a more stable online execution forecast than $K$Means.
+
+At the same time, the HMM is the most assumption-heavy of the models run in the notebook. Its performance depends on the Gaussian emission structure, the number of latent states, and the adequacy of the selected features for Markovian state representation. If the features do not sufficiently encode order flow, queue dynamics, or volatility state, the temporal smoothing can become an artificial regularizer rather than a true regime mechanism.
+
+Even with that caveat, the HMM is the most compelling choice when the report's notion of ``regime'' is explicitly temporal. Among the notebook approaches, it is the best aligned with the market-microstructure interpretation of a regime.
+
+\paragraph{HDBSCAN.}
+HDBSCAN is included in the notebook toolkit but does not appear to have a saved end-to-end output sequence comparable to the $K$Means, GMM, and HMM sections. Nevertheless, its role in the framework is clear. HDBSCAN is attractive because it does not require the number of regimes to be fixed in advance and can naturally identify noise points or irregular density structure.
+
+This is highly relevant for order book data, which often contains sparse, transitory, or anomalous states that do not belong cleanly to a small set of compact clusters. In that sense, HDBSCAN addresses one of the most important structural weaknesses of $K$Means. If the market alternates between a few dense recurring states and many scattered transient states, HDBSCAN can separate the dense regimes and flag the rest as low-confidence or noisy observations.
+
+The main drawback in the notebook context is operational rather than conceptual. HDBSCAN is less convenient for online prediction than $K$Means, GMM, or HMM. New-snapshot assignment may require approximate prediction or nearest-centroid fallback, and noise labels can create gaps in the downstream surface-querying logic. This makes it harder to integrate cleanly into a real-time quoting engine unless a secondary mapping rule is added.
+
+Therefore, HDBSCAN is best viewed as an exploratory regime-discovery tool in the current notebook. It is well suited for discovering whether the three-regime assumption is too restrictive, but it is not yet the cleanest production choice for the execution-probability layer.
+
+\paragraph{Change-Point Detection.}
+Change-point detection is also integrated into the regime toolkit, although, like HDBSCAN, it does not appear to have a saved final comparison plot in the current notebook. Its interpretation differs from clustering-based methods. Instead of grouping similar snapshots globally, change-point detection segments the time series into locally homogeneous intervals.
+
+This can be very useful in a trading context, particularly when the market exhibits structural breaks such as a volatility jump, a transition into trend-following order flow, or a sudden widening of spreads. In those cases, the key modeling problem is not necessarily ``which cluster does this snapshot belong to?'', but rather ``has the market entered a new phase?''
+
+For the notebook's fill-surface framework, change-point detection offers a different strength: it can produce execution surfaces conditioned on contiguous market episodes rather than on globally repeated states. This may be advantageous when execution quality depends heavily on recent market context. However, it is weaker as a reusable regime classifier for online inference, since the segment labels are tied to historical breakpoints and not naturally designed for out-of-sample prediction on new snapshots.
+
+Accordingly, change-point detection is most valuable as a diagnostic and structural-analysis tool in the notebook, rather than as the primary online regime engine.
+
+\paragraph{Comparison in Terms of Execution-Surface Usefulness.}
+From the notebook's perspective, the downstream objective is not clustering for its own sake, but better fill-probability estimation. Under that criterion, the models can be ranked by how naturally they support regime-conditioned surface lookup.
+
+\begin{itemize}
+	\item $K$Means is the simplest and easiest to operationalize, but it is brittle because it relies on hard assignments and fixed geometry.
+	\item GMM improves the same pipeline substantially by using posterior regime weights, which makes online fill probabilities smoother and more robust.
+	\item HMM is the most economically meaningful when regimes are interpreted as persistent market states; it is likely the best theoretical fit for a sequential execution setting.
+	\item HDBSCAN is powerful for discovery and robustness to irregular cluster shapes, but less convenient for online surface querying.
+	\item Change-point detection is strongest for identifying structural breaks and episodic shifts, but weakest as a direct reusable classifier for new single-snapshot predictions.
+\end{itemize}
+
+\paragraph{Practical Ranking Based on the Notebook.}
+Based on the saved notebook workflow and outputs, the practical ranking is as follows:
+
+\begin{enumerate}
+	\item \textbf{HMM} for regime modeling when temporal persistence is central to the interpretation of market state.
+	\item \textbf{GMM} as the best drop-in statistical upgrade over $K$Means for the existing execution-surface architecture.
+	\item \textbf{$K$Means} as a fast, interpretable baseline that is useful for initial segmentation and debugging.
+	\item \textbf{HDBSCAN} as an exploratory method for testing whether the regime structure is irregular or contains noise states.
+	\item \textbf{Change-point detection} as a complementary structural-break tool rather than the main online regime engine.
+\end{enumerate}
+
+\paragraph{Overall Conclusion.}
+The notebook demonstrates that regime-conditioned execution surfaces are a promising way to convert market-state information into bid and ask fill probabilities. The baseline $K$Means implementation validates the idea operationally, but its static and hard-clustering nature limits fidelity. The GMM improves the same framework materially by introducing soft regime weighting, while the HMM provides the most conceptually appropriate notion of regime by modeling temporal persistence. HDBSCAN and change-point detection broaden the analysis space further, but in the current notebook they are better interpreted as complementary exploratory tools than as the primary production model.
+
+For a final implementation, the evidence in the notebook suggests that the best path is to retain the empirical surface-based execution layer while replacing the regime engine with either a GMM-based soft assignment model or an HMM-based sequential regime model, depending on whether geometric flexibility or temporal structure is prioritized.
+
 \section{Summary}
 
 This chapter presented a data-driven framework for constructing market making price bands based on empirical execution probabilities. By combining regime classification with distance-based fill probability estimation, the approach enables adaptive and execution-aware quoting. The inclusion of dynamic recalibration further ensures robustness to changing market conditions, making the framework suitable for real-time deployment in electronic markets.
